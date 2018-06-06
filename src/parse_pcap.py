@@ -37,7 +37,7 @@ def ip_to_str(address):
 f = open(str(sys.argv[1]))
 pcap = dpkt.pcap.Reader(f)
 
-i=1
+i=0
 
 for ts, buf in pcap:
 
@@ -75,49 +75,70 @@ for ts, buf in pcap:
     i+=1
     eth = dpkt.ethernet.Ethernet(buf)
     ip = eth.data
-   
+
     #Data Link ARP-LLC
     if eth.type == dpkt.ethernet.ETH_TYPE_ARP:
         L2_arp = 1
         #print 'ARP'
-        
-    elif eth.type == dpkt.llc.LLC:
-        L2_llc= 1
+    elif eth.type != dpkt.ethernet.ETH_TYPE_IP:
+        print i,'\n\nNon IP Packet type not supported (EAPOL ?) %s\n' % eth.data.__class__.__name__
         continue
+    else:
+        L2_arp = 0
+
+    if eth.type == dpkt.llc.LLC:
+        L2_llc= 1
+    else:
+        L2_llc = 0
 
     #Network IP-ICMP-ICMP6-EAPOL
-    elif eth.type != dpkt.ethernet.ETH_TYPE_IP:
+    #if eth.type != dpkt.ethernet.ETH_TYPE_IP:
         #print 'EAPOL'
-        L3_eapol = 1
-        continue
-    elif eth.type == dpkt.ethernet.ETH_TYPE_IP:
-        L3_ip = 1
-        continue
-    elif type(ip.data) == dpkt.icmp.ICMP:
-        L3_icmp = 1
-        continue
-    elif type(ip.data) == dpkt.icmp6.ICMP6:
-        L3_icmp6 = 1
-        continue
-
-    #TCP-UDP
-    elif type(ip.data) == dpkt.udp.UDP:
-        L4_udp = 1
-        continue
-    elif type(ip.data) == dpkt.tcp.TCP:
-        L4_tcp = 1
-        continue   
-
+    #    L3_eapol = 1
     #else:
-    #    print "salut"
-    #    continue
+    #    L3_eapol = 0
+
+    if eth.type == dpkt.ethernet.ETH_TYPE_IP:
+        L3_ip = 1
+    else:
+        L3_ip = 0
+
+    if type(ip.data) == dpkt.icmp.ICMP:
+        L3_icmp = 1
+    else:
+        L3_icmp = 0
+
+    if type(ip.data) == dpkt.icmp6.ICMP6:
+        L3_icmp6 = 1
+    else:
+        L3_icmp6 = 0
+
+    
+    #TCP-UDP
+    if type(ip.data) == dpkt.udp.UDP:
+        L4_udp = 1
+        #if udp.dport == 67 or udp.dport == 68:
+        #    L7_dhcp = 1
+    else:
+        L4_udp = 0
+    if type(ip.data) == dpkt.tcp.TCP:
+        L4_tcp = 1
+        if tcp.dport == 80:
+            L7_http = 1
+        elif tcp.dport == 443:
+            L7_https = 1
+    else:
+        L4_tcp = 0  
 
     #Application http-https-dhcp-bootp-ssdp-dns-mdns-ntp
+    
     tcp = ip.data
-    udp = ip.data
-    #elif type(ip.data) == dpkt.dhcp.DHCP:
-    #    L7_http = 1
-    #    continue
+    udp = ip.data    
+
+    #port = tcp.dport
+
+    
+
     #elif type(ip.data) == dpkt.dhcp.DHCP:
     #    L7_dhcp = 1
     #    continue
@@ -128,17 +149,28 @@ for ts, buf in pcap:
     #print type(ip.data)
     print "----------"
     print i
-    print "L2 property:"
+    #print 'ip_address_src= ',ip_to_str(ip.src) 
+    print "L2 properties:"
     print "ARP: ",L2_arp
     print "LLC: ",L2_llc
-    print "L3 property:"
-    print "EAPOL: ",L3_eapol
+    print "L3 properties:"
+    print "EAPOL: ",str(L3_eapol)
     print "IP: ",L3_ip
     print "ICMP: ",L3_icmp
     print "ICMP6: ",L3_icmp6
-    print "L4 property:"
+    print "L4 properties:"
     print "TCP: ",L4_tcp
     print "UDP: ",L4_udp
+    print "L7 properties:"
+    print "HTTP: ",L7_http
+    print "HTTPS: ",L7_https
+    print "DHCP: ",L7_dhcp
+    print "BOOTP: ",L7_bootp
+    print "SSDP: ",L7_ssdp
+    print "DNS: ",L7_dns
+    print "MDNS: ",L7_mdns
+    print "NTP: ",L7_ntp
+
 
     #print 'ip_address_src= ',ip_to_str(ip.src)
     #print 'ip_address_dst= ',ip_to_str(ip.dst)
@@ -146,6 +178,5 @@ for ts, buf in pcap:
     #print 'tcp_sport=',tcp.sport
     #print 'tcp_dport=',tcp.dport
     #print '--------'
-
 #
 f.close()

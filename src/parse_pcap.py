@@ -41,6 +41,8 @@ i=0
 
 for ts, buf in pcap:
 
+#Variables assignment
+
     L2_arp = 0
     L2_llc = 0
 
@@ -73,44 +75,59 @@ for ts, buf in pcap:
 
     
     i+=1
+    
+    #Assign ethernet buffer value to eth
     eth = dpkt.ethernet.Ethernet(buf)
     ip = eth.data
     
 
-    #Data Link ARP-LLC
+    #Network Layer IP
     if eth.type == dpkt.ethernet.ETH_TYPE_IP:
+        L3_ip = 1
+        pck_size = len(ip.data)
         
         tcp = ip.data
         udp = ip.data
         
-        L3_ip = 1
-
+    #Network Layer ICMP-ICMP6     
         if type(ip.data) == dpkt.icmp.ICMP:
             L3_icmp = 1
         if type(ip.data) == dpkt.icmp6.ICMP6:
             L3_icmp6 = 1
+    #Transport UDP DHCP-DNS-MDNS-SSDP-NTP
         if type(ip.data) == dpkt.udp.UDP:
             L4_udp = 1
+            if udp.sport == 68 or udp.sport == 67 :
+                L7_dhcp = 1
+                L7_bootp = 1
+            if udp.sport == 53 or udp.dport == 53 :
+                L7_dns = 1
+            if udp.sport == 5353 or udp.dport == 5353 :
+                L7_mdns = 1
+            if udp.sport == 1900 or udp.dport == 1900 :
+                L7_ssdp = 1
+            if udp.sport == 123 or udp.dport == 123 :
+                L7_ntp = 1
+    #Transport TCP HTTP-HTTPS
         if type(ip.data) == dpkt.tcp.TCP:
             L4_tcp = 1
             if tcp.dport == 80 and len(tcp.data) > 0:
-                L7_http = 1
-                # try:
-                #     L7_http = 1
-                #     http_req = dpkt.http.Request(tcp.data)
-                #     print "URI is ", http_req.uri
-                # except Exception as e:
-                #     raise e
-                #     continue
-                
+                try:
+                    request = dpkt.http.Request(tcp.data)
+                    L7_http = 1
+                except (dpkt.dpkt.NeedData, dpkt.dpkt.UnpackError):
+                    continue                
             if tcp.dport == 443 and len(tcp.data) > 0:
                  L7_https = 1
-         
+
     elif eth.type != dpkt.ethernet.ETH_TYPE_IP:
+    
+    #Data Link ARP-LLC
         if eth.type == dpkt.ethernet.ETH_TYPE_ARP:
             L2_arp = 1            
         if eth.type == dpkt.llc.LLC:
             L2_llc= 1
+    #Network EAPoL
         if eth.type == dpkt.ethernet.ETH_TYPE_EAPOL:
             L3_eapol = 1
     else:
@@ -126,6 +143,7 @@ for ts, buf in pcap:
     print "L3 properties:"
     print "EAPOL: ",L3_eapol
     print "IP: ",L3_ip
+    print "IP packet size: ",pck_size
     print "ICMP: ",L3_icmp
     print "ICMP6: ",L3_icmp6
     print "L4 properties:"

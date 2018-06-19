@@ -32,6 +32,18 @@ def ip_to_str(address):
     return socket.inet_ntop(socket.AF_INET, address)
 
 
+def port_class_def(ip_port):
+
+    if 0 <= ip_port <= 1023:
+        return 1
+    elif  1024 <= ip_port <= 49151 :
+        return 2
+    elif 49152 <= ip_port <= 65535 :
+        return 3
+    else:
+        return 0
+
+
 
 #f = open('/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/Aria/Setup-A-2-STA.pcap')
 f = open(str(sys.argv[1]))
@@ -84,6 +96,7 @@ for ts, buf in pcap:
     #Network Layer IP
     if eth.type == dpkt.ethernet.ETH_TYPE_IP:
         L3_ip = 1
+
         pck_size = len(ip.data)
         
         tcp = ip.data
@@ -97,6 +110,9 @@ for ts, buf in pcap:
     #Transport UDP DHCP-DNS-MDNS-SSDP-NTP
         if type(ip.data) == dpkt.udp.UDP:
             L4_udp = 1
+            port_class_src = port_class_def(udp.sport)
+            port_class_dst = port_class_def(udp.dport)
+
             if udp.sport == 68 or udp.sport == 67 :
                 L7_dhcp = 1
                 L7_bootp = 1
@@ -111,6 +127,9 @@ for ts, buf in pcap:
     #Transport TCP HTTP-HTTPS
         if type(ip.data) == dpkt.tcp.TCP:
             L4_tcp = 1
+            port_class_src = port_class_def(tcp.sport)
+            port_class_dst = port_class_def(tcp.dport)
+
             if tcp.dport == 80 and len(tcp.data) > 0:
                 try:
                     request = dpkt.http.Request(tcp.data)
@@ -144,6 +163,8 @@ for ts, buf in pcap:
     print "EAPOL: ",L3_eapol
     print "IP: ",L3_ip
     print "IP packet size: ",pck_size
+    print "Port class src: ",port_class_src
+    print "Port class dst: ",port_class_dst
     print "ICMP: ",L3_icmp
     print "ICMP6: ",L3_icmp6
     print "L4 properties:"

@@ -47,12 +47,23 @@ def port_class_def(ip_port):
     else:
         return 0
 
+def get_dest_ip_counter(ip_dst_new,ip_dst_set,ip_dst_count):
+
+    if ip_dst_new not in ip_dst_set:
+        print ip_dst_set
+        ip_dst_count = ip_dst_count + 1
+        ip_dst_new = ip_dst_set
+    else:
+        ip_dst_new = ip_dst_set
+
+    return ip_dst_set,ip_dst_count 
+
 i=0
 # for filename in glob.iglob('captures_IoT_Sentinel/captures_IoT-Sentinel/**/*.pcap',recursive=True):
 #     print(filename)
-f = open('captures_IoT_Sentinel/captures_IoT-Sentinel/HomeMaticPlug/Setup-C-4-STA.pcap')
+#f = open('captures_IoT_Sentinel/captures_IoT-Sentinel/HomeMaticPlug/Setup-C-4-STA.pcap')
 #f = open('/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/Aria/Setup-A-2-STA.pcap')
-#f = open(str(sys.argv[1]))
+f = open(str(sys.argv[1]))
 
     
 # f = open(str(filename))
@@ -69,6 +80,8 @@ for ts, buf in pcap:
     L2_llc = 0
 
     L3_ip = 0
+    L3_ip_dst = ''
+    L3_ip_dst_count = 0
     L3_icmp = 0
     L3_icmp6 = 0
     L3_eapol = 0
@@ -108,7 +121,12 @@ for ts, buf in pcap:
         L3_ip = 1
 
         pck_size = len(ip.data)
-        
+        ip_t=ip_to_str(ip.dst)
+        print ip_t
+        L3_ip_dst,L3_ip_dst_count=get_dest_ip_counter(ip_t,L3_ip_dst,L3_ip_dst_count)
+        print "DST count: ",L3_ip_dst_count
+        print "DST IP: ",L3_ip_dst
+
         tcp = ip.data
         udp = ip.data
         

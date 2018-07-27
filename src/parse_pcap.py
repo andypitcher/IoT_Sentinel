@@ -6,6 +6,7 @@
 '''
 
 import datetime
+import time
 import dpkt
 import sys
 import socket
@@ -65,13 +66,17 @@ def get_dest_ip_counter(L3_ip_dst_new):
 
 
 
+
+
+packet_number = 0
 L3_ip_dst_set = []
-L3_ip_dst_counter = 1
+
 
 def parse_pcap(capture,device_label):
+    
+    global packet_number
 
     i_counter=0
-
     f = open(capture)
     pcap = dpkt.pcap.Reader(f)
 
@@ -130,7 +135,7 @@ def parse_pcap(capture,device_label):
             ip_dst_new=ip_to_str(ip.dst)
             L3_ip_dst,L3_ip_dst_count=get_dest_ip_counter(ip_dst_new)
 
-            print ("DST count: ",L3_ip_dst_count)
+            #print ("DST count: ",L3_ip_dst_count)
             print ("DST IP: ",L3_ip_dst)
 
             tcp = ip.data
@@ -195,14 +200,17 @@ def parse_pcap(capture,device_label):
         ar = np.array([L2_arp,L2_llc,L3_eapol,L3_ip,pck_size,pck_rawdata,ip_padding,ip_ralert,L3_ip_dst_counter,port_class_src,port_class_dst,L3_icmp,L3_icmp6,L4_tcp,L4_udp,L7_https,L7_dhcp,L7_bootp,L7_ssdp,L7_dns,L7_mdns,L7_ntp,device_label])
         df = pandas.DataFrame(ar, columns = [i_counter], index  = ['arp', 'llc', 'eapol', 'ip','pck_size','pck_rawdata','ip_padding','ip_ralert','ip_add_count','portc_src','portc_dst','icmp','icmp6','tcp','udp','http','dhcp','bootp','ssdp','dns','mdns','ntp','device_label'])
         print (df)
-        df.to_csv('csv_results/file.csv', sep='\t', encoding='utf-8')
+        csv_file='csv_results/file.csv'+str(packet_number)
+        df.to_csv(csv_file, sep='\t', encoding='utf-8')
         print ("\n")
+        packet_number+=1
     f.close()
 
 
 def main():
 
-
+    global L3_ip_dst_counter 
+    
 
     device_label=os.listdir('/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/')
     i = 0
@@ -211,9 +219,12 @@ def main():
 
         for filename in glob.glob(filename_path):
             if os.path.isfile(filename):
+                del L3_ip_dst_set[:]
+                L3_ip_dst_counter = 1 
+                print L3_ip_dst_set,L3_ip_dst_counter
                 parse_pcap(filename,device_label[i])
             else:
-                print('file does not exist') 
+                print('file does not exist')
         i += 1
 
 

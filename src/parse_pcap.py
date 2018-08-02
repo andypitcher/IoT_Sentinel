@@ -13,6 +13,7 @@ import socket
 import pandas
 import numpy as np
 import glob, os
+from struct import *
 
 
 """
@@ -131,6 +132,11 @@ def parse_pcap(capture,device_label):
             #Get packet size
             pck_size = len(ip.data)
 
+            #Check router alert (HL has to be above 5 and ip.opts == '\x94\x04\x00\x00')
+            if ip.hl > 5:
+                if ip.opts == dpkt.ip.IP_OPT_RALERT:
+                    ip_ralert=1
+
             #Check new destination IP
             ip_dst_new=ip_to_str(ip.dst)
             L3_ip_dst,L3_ip_dst_count=get_dest_ip_counter(ip_dst_new)
@@ -146,6 +152,8 @@ def parse_pcap(capture,device_label):
                 L3_icmp = 1
             if type(ip.data) == dpkt.icmp6.ICMP6:
                 L3_icmp6 = 1
+            if type(ip.data) == dpkt.ip.IP_PROTO_RAW:
+                pck_rawdata = 1
         
         #Transport UDP DHCP-DNS-MDNS-SSDP-NTP
             if type(ip.data) == dpkt.udp.UDP:
@@ -196,11 +204,12 @@ def parse_pcap(capture,device_label):
             continue
 
     #Create the array containing the 23 features
+        L3_ip_dst_counter=3
 
         ar = np.array([L2_arp,L2_llc,L3_eapol,L3_ip,pck_size,pck_rawdata,ip_padding,ip_ralert,L3_ip_dst_counter,port_class_src,port_class_dst,L3_icmp,L3_icmp6,L4_tcp,L4_udp,L7_https,L7_dhcp,L7_bootp,L7_ssdp,L7_dns,L7_mdns,L7_ntp,device_label])
         df = pandas.DataFrame(ar, columns = [i_counter], index  = ['arp', 'llc', 'eapol', 'ip','pck_size','pck_rawdata','ip_padding','ip_ralert','ip_add_count','portc_src','portc_dst','icmp','icmp6','tcp','udp','http','dhcp','bootp','ssdp','dns','mdns','ntp','device_label'])
         print (df)
-        csv_file='csv_results/file.csv'+str(packet_number)
+        csv_file='csv_results/file_'+device_label+'_'+str(packet_number)+'.csv'
         df.to_csv(csv_file, sep='\t', encoding='utf-8')
         print ("\n")
         packet_number+=1
@@ -210,18 +219,17 @@ def parse_pcap(capture,device_label):
 def main():
 
     global L3_ip_dst_counter 
-    
 
     device_label=os.listdir('/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/')
     i = 0
     while i < len(device_label):
         filename_path='/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/'+device_label[i]+'/*.pcap'
-
+        # filename_path='/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/test_pcap/*.pcap'
         for filename in glob.glob(filename_path):
             if os.path.isfile(filename):
                 del L3_ip_dst_set[:]
                 L3_ip_dst_counter = 1 
-                print L3_ip_dst_set,L3_ip_dst_counter
+                print (L3_ip_dst_set,L3_ip_dst_counter)
                 parse_pcap(filename,device_label[i])
             else:
                 print('file does not exist')

@@ -114,7 +114,7 @@ def parse_pcap(capture,device_label):
         port_class_dst = 0
 
         pck_size = 0
-        pck_rawdata = 'n/a'
+        pck_rawdata = 0
 
         
         i_counter+=1
@@ -206,8 +206,8 @@ def parse_pcap(capture,device_label):
     #Create the array containing the 23 features
         L3_ip_dst_counter=3
 
-        ar = np.array([L2_arp,L2_llc,L3_eapol,L3_ip,pck_size,pck_rawdata,ip_padding,ip_ralert,L3_ip_dst_counter,port_class_src,port_class_dst,L3_icmp,L3_icmp6,L4_tcp,L4_udp,L7_https,L7_dhcp,L7_bootp,L7_ssdp,L7_dns,L7_mdns,L7_ntp,device_label])
-        df = pandas.DataFrame(ar, columns = [i_counter], index  = ['arp', 'llc', 'eapol', 'ip','pck_size','pck_rawdata','ip_padding','ip_ralert','ip_add_count','portc_src','portc_dst','icmp','icmp6','tcp','udp','http','dhcp','bootp','ssdp','dns','mdns','ntp','device_label'])
+        ar = np.array([L2_arp,L2_llc,L3_eapol,L3_ip,pck_size,pck_rawdata,ip_padding,ip_ralert,L3_ip_dst_counter,port_class_src,port_class_dst,L3_icmp,L3_icmp6,L4_tcp,L4_udp,L7_https,L7_http,L7_dhcp,L7_bootp,L7_ssdp,L7_dns,L7_mdns,L7_ntp,device_label])
+        df = pandas.DataFrame(ar, columns = [i_counter], index  = ['arp', 'llc', 'eapol', 'ip','pck_size','pck_rawdata','ip_padding','ip_ralert','ip_add_count','portc_src','portc_dst','icmp','icmp6','tcp','udp','https','http','dhcp','bootp','ssdp','dns','mdns','ntp','device_label'])
         print (df)
         csv_file='csv_results/file_'+device_label+'_'+str(packet_number)+'.csv'
         df.to_csv(csv_file, sep='\t', encoding='utf-8')

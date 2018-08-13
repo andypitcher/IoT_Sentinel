@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 '''
 
-    Iot Sentinel
+    Iot Sentinel: parse_pcap.py
+    Author: Andy Pitcher <andy.pitcher@mail.concordia.ca>
 
 '''
 
@@ -73,7 +74,7 @@ packet_number = 0
 L3_ip_dst_set = []
 
 
-def parse_pcap(capture,device_label):
+def parse_pcap(capture,device_label,id_pcap):
     
     global packet_number
 
@@ -142,7 +143,7 @@ def parse_pcap(capture,device_label):
             L3_ip_dst,L3_ip_dst_count=get_dest_ip_counter(ip_dst_new)
 
             #print ("DST count: ",L3_ip_dst_count)
-            print ("DST IP: ",L3_ip_dst)
+            #print ("DST IP: ",L3_ip_dst)
 
             tcp = ip.data
             udp = ip.data
@@ -204,13 +205,18 @@ def parse_pcap(capture,device_label):
             continue
 
     #Create the array containing the 23 features
-        L3_ip_dst_counter=3
 
+        #Useless Output
         ar = np.array([L2_arp,L2_llc,L3_eapol,L3_ip,pck_size,pck_rawdata,ip_padding,ip_ralert,L3_ip_dst_counter,port_class_src,port_class_dst,L3_icmp,L3_icmp6,L4_tcp,L4_udp,L7_https,L7_http,L7_dhcp,L7_bootp,L7_ssdp,L7_dns,L7_mdns,L7_ntp,device_label])
-        df = pandas.DataFrame(ar, columns = [i_counter], index  = ['arp', 'llc', 'eapol', 'ip','pck_size','pck_rawdata','ip_padding','ip_ralert','ip_add_count','portc_src','portc_dst','icmp','icmp6','tcp','udp','https','http','dhcp','bootp','ssdp','dns','mdns','ntp','device_label'])
+        df = pandas.DataFrame(ar, index  = ['arp', 'llc', 'eapol', 'ip','pck_size','pck_rawdata','ip_padding','ip_ralert','ip_add_count','portc_src','portc_dst','icmp','icmp6','tcp','udp','https','http','dhcp','bootp','ssdp','dns','mdns','ntp','device_label'])
         print (df)
-        csv_file='csv_results/file_'+device_label+'_'+str(packet_number)+'.csv'
-        df.to_csv(csv_file, sep='\t', encoding='utf-8')
+
+        #Dataframe to be pushed into csv
+        ar2={'ARP':[L2_arp],'LLC':[L2_llc],'EAPOL':[L3_eapol],'Pck_size':[pck_size],'Pck_rawdata':[pck_rawdata],'IP_padding':[ip_padding],'IP_ralert':[ip_ralert],'IP_add_count':[L3_ip_dst_counter],'Portcl_src':[port_class_src],'Portcl_dst':[port_class_dst],'ICMP':[L3_icmp],'ICMP6':[L3_icmp6],'TCP':[L4_tcp],'UDP':[L4_udp],'HTTPS':[L7_https],'HTTP':[L7_http],'DHCP':[L7_dhcp],'BOOTP':[L7_bootp],'SSDP':[L7_ssdp],'DNS':[L7_dns],'MDNS':[L7_mdns],'NTP':[L7_ntp],'Label': [device_label]}
+        df2= pandas.DataFrame(data=ar2)
+
+        csv_file='csv_results_2/file_'+device_label+'_'+str(id_pcap)+'.csv'
+        df2.to_csv(csv_file, sep='\t', encoding='utf-8',mode='a',index=False)
         print ("\n")
         packet_number+=1
     f.close()
@@ -222,6 +228,7 @@ def main():
 
     device_label=os.listdir('/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/')
     i = 0
+    id_pcap=0
     while i < len(device_label):
         filename_path='/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/'+device_label[i]+'/*.pcap'
         # filename_path='/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/test_pcap/*.pcap'
@@ -230,7 +237,8 @@ def main():
                 del L3_ip_dst_set[:]
                 L3_ip_dst_counter = 1 
                 print (L3_ip_dst_set,L3_ip_dst_counter)
-                parse_pcap(filename,device_label[i])
+                parse_pcap(filename,device_label[i],id_pcap)
+                id_pcap += 1
             else:
                 print('file does not exist')
         i += 1

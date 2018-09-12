@@ -3,13 +3,14 @@
 
     Iot Sentinel: parse_pcap.py
     Author: Andy Pitcher <andy.pitcher@mail.concordia.ca>
-
+    
 '''
 
 import datetime
 import time
 import dpkt
 import sys
+import getopt
 import socket
 import pandas
 import numpy as np
@@ -27,6 +28,12 @@ from struct import *
     f= port class ref 0 or 1 0r 2 or 3
         
 """
+
+def create_outputdir(outputdir,device_label):
+
+    dirpath=outputdir+device_label
+    if not os.path.isdir(dirpath):
+        os.makedirs(dirpath)
 
 def ip_to_str(address):
     """Print out an IP address given a string
@@ -65,15 +72,11 @@ def get_dest_ip_counter(L3_ip_dst_new):
 
     return L3_ip_dst_set,L3_ip_dst_counter
 
-
-
-
-
 packet_number = 0
 L3_ip_dst_set = []
 
 
-def parse_pcap(capture,device_label,id_pcap):
+def parse_pcap(outputdir,capture,device_label,id_pcap):
     
     global packet_number
 
@@ -142,8 +145,6 @@ def parse_pcap(capture,device_label,id_pcap):
             ip_dst_new=ip_to_str(ip.dst)
             L3_ip_dst,L3_ip_dst_count=get_dest_ip_counter(ip_dst_new)
 
-            #print ("DST count: ",L3_ip_dst_count)
-            #print ("DST IP: ",L3_ip_dst)
 
             tcp = ip.data
             udp = ip.data
@@ -180,9 +181,9 @@ def parse_pcap(capture,device_label,id_pcap):
                 port_class_src = port_class_def(tcp.sport)
                 port_class_dst = port_class_def(tcp.dport)
 
-                if tcp.dport == 80 and len(tcp.data) > 0:
+                if tcp.sport == 80 or tcp.dport == 80:
                     L7_http = 1               
-                if tcp.dport == 443 and len(tcp.data) > 0:
+                if tcp.sport == 443 or tcp.dport == 443:
                      L7_https = 1
 
         elif eth.type != dpkt.ethernet.ETH_TYPE_IP:
@@ -202,61 +203,91 @@ def parse_pcap(capture,device_label,id_pcap):
 
     #Create the array containing the 23 features
 
-        #Useless Output
-        #ar = np.array([L2_arp,L2_llc,L3_eapol,L3_ip,pck_size,pck_rawdata,ip_padding,ip_ralert,L3_ip_dst_counter,port_class_src,port_class_dst,L3_icmp,L3_icmp6,L4_tcp,L4_udp,L7_https,L7_http,L7_dhcp,L7_bootp,L7_ssdp,L7_dns,L7_mdns,L7_ntp,device_label])
-        # ar = {[L2_arp,L2_llc,L3_eapol,L3_ip,pck_size,pck_rawdata,ip_padding,ip_ralert,L3_ip_dst_counter,port_class_src,port_class_dst,L3_icmp,L3_icmp6,L4_tcp,L4_udp,L7_https,L7_http,L7_dhcp,L7_bootp,L7_ssdp,L7_dns,L7_mdns,L7_ntp,device_label]}
-        # df = pandas.DataFrame(ar, index  = ['arp', 'llc', 'eapol', 'ip','pck_size','pck_rawdata','ip_padding','ip_ralert','ip_add_count','portc_src','portc_dst','icmp','icmp6','tcp','udp','https','http','dhcp','bootp','ssdp','dns','mdns','ntp','device_label'])
-        # print (df)
-
         #Dataframe to be pushed into csvpck_size
         ar2={'ARP':[L2_arp],'LLC':[L2_llc],'EAPOL':[L3_eapol],'Pck_size':[pck_size],'Pck_rawdata':[pck_rawdata],'IP_padding':[ip_padding],'IP_ralert':[ip_ralert],'IP_add_count':[L3_ip_dst_counter],'Portcl_src':[port_class_src],'Portcl_dst':[port_class_dst],'ICMP':[L3_icmp],'ICMP6':[L3_icmp6],'TCP':[L4_tcp],'UDP':[L4_udp],'HTTPS':[L7_https],'HTTP':[L7_http],'DHCP':[L7_dhcp],'BOOTP':[L7_bootp],'SSDP':[L7_ssdp],'DNS':[L7_dns],'MDNS':[L7_mdns],'NTP':[L7_ntp],'Label': [device_label]}
-        #headers_name=['ARP','LLC','EAPOL','Pck_size','Pck_rawdata','IP_padding','IP_ralert','IP_add_count,'
         headers_name=['ARP','LLC','EAPOL','Pck_size','Pck_rawdata','IP_padding','IP_ralert','IP_add_count','Portcl_src','Portcl_dst','ICMP','ICMP6','TCP','UDP','HTTPS','HTTP','DHCP','BOOTP','SSDP','DNS','MDNS','NTP','Label'] 
         df2= pandas.DataFrame(data=ar2,columns=headers_name)
-       
-        print (ar2)
-        # df2= pandas.DataFrame(data=ar2)
 
-        csv_file='csv_results_5/file_'+device_label+'_'+str(id_pcap)+'.csv'
+        #Create dir for CSVs
+        create_outputdir(outputdir,device_label)
+
+        #Create CSV
+        csv_file=outputdir+device_label+'/file_'+device_label+'_'+str(id_pcap)+'.csv'
     
-        #csv_file='csv_results_4/file_'+device_label+'_'+'.csv'
         df2.to_csv(csv_file, sep='\t', encoding='utf-8',mode='a', header=False)
 
-        print ("\n")
         packet_number+=1
+
+        #Display features per packet
+        print (ar2)
+        print ('\n')
+    
     f.close()
 
 
-def main():
+def main(argv):
 
-    filename_path='/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/Aria/Setup-A-1-STA.pcap'
-    device_label='Aria'
-    id_pcap=1
-    global L3_ip_dst_counter
-    L3_ip_dst_counter=1
-    parse_pcap(filename_path,device_label,id_pcap)
+    version='IoT_Sentinel parse_pcap v1.0'
+    inputpcap = ''
+    inputdir = ''
+    outputdir = ''
+
+    global L3_ip_dst_counter 
+
+    #Global Options (getopt)
+
+    try:
+        opts, args = getopt.getopt(argv,"hd:o:i:l:",["idir=","odir=","ifile=","label="])
+    except getopt.GetoptError:
+        print version+'\nusage:\tparse_pcap.py -d <inputdir> [or] -i <inputpcap> -l <label> [and] -o <outputdir>'
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print version+'\nusage:\tparse_pcap.py -d <inputdir> [or] -i <inputpcap> -l <label> [and] -o <outputdir>'
+            sys.exit()
+        elif opt in ("-d", "--dir"):
+            op = 1
+            inputdir = arg
+            device_label=os.listdir(inputdir)
+        elif opt in ("-o", "--odir"):
+            outputdir = arg
+        elif opt in ("-i", "--ifile"):
+            op = 2
+            inputpcap= arg
+            id_pcap = 1
+            L3_ip_dst_counter=1
+        elif opt in ("-l", "--device_label"):
+            device_label = [arg]
 
 
 
-    # global L3_ip_dst_counter 
+    print 'IoT_Sentinel: parse_pcap.py v1.0\n'
 
-    # device_label=os.listdir('/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/')
-    # i = 0
-    # id_pcap=0
-    # while i < len(device_label):
-    #     filename_path='/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/'+device_label[i]+'/*.pcap'
-    #     # filename_path='/home/andyp/Documents/Studies/CONCORDIA/IoT_project/IoT_Sentinel/src/captures_IoT_Sentinel/captures_IoT-Sentinel/Aria/Setup-A-1-STA.pcap'
-    #     for filename in glob.glob(filename_path):
-    #         if os.path.isfile(filename):
-    #             del L3_ip_dst_set[:]
-    #             L3_ip_dst_counter = 1 
-    #             print (L3_ip_dst_set,L3_ip_dst_counter)
-    #             parse_pcap(filename,device_label[i],id_pcap)
-    #             id_pcap += 1
-    #         else:
-    #             print('file does not exist')
-    #     i += 1
+    i = 0
+    id_pcap=0
+    while i < len(device_label):
+        if op == 1:    
+            filename_path=inputdir+device_label[i]+'/*.pcap'
+            print '\nINPUTDIR: ',inputdir
+            print '\nOUTPUTDIR: ',outputdir
+            print '\nDevices in search:\n'+str(device_label)
+        elif op == 2:
+            filename_path=inputpcap
+            print '\nINPUTPCAP: ',inputdir
+            print '\nOUTPUTDIR: ',outputdir
+            print '\nDevice in search:\n'+str(device_label)
+
+        for filename in glob.glob(filename_path):
+            if os.path.isfile(filename):
+                del L3_ip_dst_set[:]
+                L3_ip_dst_counter = 1 
+                print (L3_ip_dst_set,L3_ip_dst_counter)
+                parse_pcap(outputdir,filename,device_label[i],id_pcap)
+                id_pcap += 1
+            else:
+                print('file does not exist')
+        i += 1
 
 
 if __name__== "__main__":
-  main()
+  main(sys.argv[1:])

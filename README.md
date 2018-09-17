@@ -1,7 +1,10 @@
 # IoT_Sentinel
-Links:
 
-https://jon.oberheide.org/blog/2008/10/15/dpkt-tutorial-2-parsing-a-pcap-file/ 
-http://engineering-notebook.readthedocs.io/en/latest/engineering/dpkt.html 
-https://github.com/kbandla/dpkt/issues/232 
-http://www.commercialventvac.com/dpkt.html#mozTocId429391 
+This program is an implementation of IoT sentinel: https://arxiv.org/pdf/1611.04880.pdf
+Device Fingerprint, it takes as input pcaps and tests each packets against 23 features:
+
+
+
+
+Usage:  parse_pcap.py -d <inputdir> [or] -i <inputpcap> -l <label> [and] -o <outputdir>
+Example: ./parse_pcap.py -d captures_IoT_Sentinel/captures_IoT-Sentinel/ -o csv_result_full/

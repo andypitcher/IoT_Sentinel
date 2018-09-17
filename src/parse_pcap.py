@@ -1,9 +1,27 @@
 #!/usr/bin/env python
 '''
 
-    Iot Sentinel: parse_pcap.py
+    Iot Sentinel: parse_pcap.py v1.0
     Author: Andy Pitcher <andy.pitcher@mail.concordia.ca>
-    
+
+    This program is an implementation of IoT sentinel: https://arxiv.org/pdf/1611.04880.pdf
+
+    Device Fingerprint, it takes as input pcaps and tests each packets against 23 features:
+
+
+    Link layer protocol (2)                 ARP/LLC
+    Network layer protocol (4)              IP/ICMP/ICMPv6/EAPoL
+    Transport layer protocol (2)            TCP/UDP
+    Application layer protocol (8)          HTTP/HTTPS/DHCP/BOOTP/SSDP/DNS/MDNS/ NTP
+    IP options (2)                          Padding/RouterAlert
+    Packet content (2)                      Size (int)/Raw data
+    IP address (1)                          Destination IP counter (int)
+    Port class (2)                          Source (int) / Destination (int)
+
+
+Usage:  parse_pcap.py -d <inputdir> [or] -i <inputpcap> -l <label> [and] -o <outputdir>
+Example: ./parse_pcap.py -d captures_IoT_Sentinel/captures_IoT-Sentinel/ -o csv_result_full/
+
 '''
 
 import datetime
@@ -13,7 +31,6 @@ import sys
 import getopt
 import socket
 import pandas
-import numpy as np
 import glob, os
 from struct import *
 
@@ -28,6 +45,7 @@ from struct import *
     f= port class ref 0 or 1 0r 2 or 3
         
 """
+
 
 def create_outputdir(outputdir,device_label):
 
@@ -72,14 +90,11 @@ def get_dest_ip_counter(L3_ip_dst_new):
 
     return L3_ip_dst_set,L3_ip_dst_counter
 
-packet_number = 0
-L3_ip_dst_set = []
-
 
 def parse_pcap(outputdir,capture,device_label,id_pcap):
     
-    global packet_number
 
+    #Open the given passed pcap/capture to feed the buffer
     i_counter=0
     f = open(capture)
     pcap = dpkt.pcap.Reader(f)
@@ -121,7 +136,6 @@ def parse_pcap(outputdir,capture,device_label,id_pcap):
 
         
         i_counter+=1
-        print (i_counter)
         
         #Assign ethernet buffer value to eth
         eth = dpkt.ethernet.Ethernet(buf)
@@ -216,8 +230,6 @@ def parse_pcap(outputdir,capture,device_label,id_pcap):
     
         df2.to_csv(csv_file, sep='\t', encoding='utf-8',mode='a', header=False)
 
-        packet_number+=1
-
         #Display features per packet
         print (ar2)
         print ('\n')
@@ -227,12 +239,17 @@ def parse_pcap(outputdir,capture,device_label,id_pcap):
 
 def main(argv):
 
+
     version='IoT_Sentinel parse_pcap v1.0'
     inputpcap = ''
     inputdir = ''
     outputdir = ''
 
+    #Variable for get_dest_ip_counter function
+
     global L3_ip_dst_counter 
+    global L3_ip_dst_set 
+    L3_ip_dst_set = []
 
     #Global Options (getopt)
 
@@ -262,7 +279,6 @@ def main(argv):
 
 
     print 'IoT_Sentinel: parse_pcap.py v1.0\n'
-
     i = 0
     id_pcap=0
     while i < len(device_label):
@@ -270,18 +286,20 @@ def main(argv):
             filename_path=inputdir+device_label[i]+'/*.pcap'
             print '\nINPUTDIR: ',inputdir
             print '\nOUTPUTDIR: ',outputdir
-            print '\nDevices in search:\n'+str(device_label)
+            print '\nDEVICE TESTED:\n'+str(device_label)+'\n\n'
         elif op == 2:
             filename_path=inputpcap
             print '\nINPUTPCAP: ',inputdir
             print '\nOUTPUTDIR: ',outputdir
-            print '\nDevice in search:\n'+str(device_label)
+            print '\nDEVICE TESTED:\n'+str(device_label)
+
+        print '\nSTARTING...\n' 
 
         for filename in glob.glob(filename_path):
             if os.path.isfile(filename):
                 del L3_ip_dst_set[:]
                 L3_ip_dst_counter = 1 
-                print (L3_ip_dst_set,L3_ip_dst_counter)
+                print('Device: '+device_label[i]+'\n\n')
                 parse_pcap(outputdir,filename,device_label[i],id_pcap)
                 id_pcap += 1
             else:

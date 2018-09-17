@@ -1,0 +1,6 @@
+This dataset was used for experiments regarding IoT device-type identification in the IEEE ICDCS 2017 publication "IoT SENTINEL: Automated Device-Type Identification for Security Enforcement in IoT" (https://arxiv.org/abs/1611.04880).
+It represents the traffic emitted during the setup of 31 smart home IoT devices of 27 different types (4 types are represented by 2 devices each). Each setup was repeated at least 20 times per device-type.
+Each directory contains several pcap files, each representing a setup of the given device directory. Files are named Setup-X-Y-STA.pcap where X is the person realizing the setup and Y is the sequence number of the given capture. The file _iotdevice-mac.txt contains the MAC address of the considered IoT device.
+
+Please refer to the following publication when citing this dataset:
+Markus Miettinen, Samuel Marchal, Ibbad Hafeez, N. Asokan, Ahmad-Reza Sadeghi, Sasu Tarkoma, “IoT Sentinel: Automated Device-Type Identification for Security Enforcement in IoT,” in Proc. 37th IEEE International Conference on Distributed Computing Systems (ICDCS 2017), Jun. 2017.

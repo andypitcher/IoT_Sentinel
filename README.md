@@ -1,6 +1,6 @@
 # IoT_Sentinel
 
-This program is an implementation of IoT sentinel: https://arxiv.org/pdf/1611.04880.pdf 
+This program is an implementation of IoT sentinel: https://arxiv.org/pdf/1611.04880.pdf  
 Device Fingerprint, it takes as input pcaps and tests each packets against 23 features: 
 
 

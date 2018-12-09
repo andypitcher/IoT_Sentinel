@@ -19,8 +19,8 @@
     Port class (2)                          Source (int) / Destination (int)
 
 
-Usage:  parse_pcap.py -d <inputdir> [or] -i <inputpcap> -l <label> [and] -o <outputdir>
-Example: ./parse_pcap.py -d captures_IoT_Sentinel/captures_IoT-Sentinel/ -o csv_result_full/
+Usage:  iot_fingerprint.py -d <inputdir> [or] -i <inputpcap> -l <label> [and] -o <outputdir>
+Example: ./iot_fingerprint.py -d captures_IoT_Sentinel/captures_IoT-Sentinel/ -o csv_result_full/
 
 '''
 
@@ -218,7 +218,7 @@ def parse_pcap(outputdir,capture,device_label,id_pcap):
     #Create the array containing the 23 features
 
         #Dataframe to be pushed into csvpck_size
-        ar2={'ARP':[L2_arp],'LLC':[L2_llc],'EAPOL':[L3_eapol],'Pck_size':[pck_size],'Pck_rawdata':[pck_rawdata],'IP_padding':[ip_padding],'IP_ralert':[ip_ralert],'IP_add_count':[L3_ip_dst_counter],'Portcl_src':[port_class_src],'Portcl_dst':[port_class_dst],'ICMP':[L3_icmp],'ICMP6':[L3_icmp6],'TCP':[L4_tcp],'UDP':[L4_udp],'HTTPS':[L7_https],'HTTP':[L7_http],'DHCP':[L7_dhcp],'BOOTP':[L7_bootp],'SSDP':[L7_ssdp],'DNS':[L7_dns],'MDNS':[L7_mdns],'NTP':[L7_ntp],'Label': [device_label]}
+        ar2={'ARP':[L2_arp],'LLC':[L2_llc],'EAPOL':[L3_eapol],'Pck_size':[pck_size],'Pck_rawdata':[pck_rawdata],'IP_padding':[ip_padding],'IP_ralert':[ip_ralert],'IP_add_count':[L3_ip_dst_counter],'Portcl_src':[port_class_src],'Portcl_dst':[port_class_dst],'ICMP':[L3_icmp],'ICMP6':[L3_icmp6],'TCP':[L4_tcp],'UDP':[L4_udp],'HTTPS':[L7_https],'HTTP':[L7_http],'DHCP':[L7_dhcp],'BOOTP':[L7_bootp],'SSDP':[L7_ssdp],'DNS':[L7_dns],'MDNS':[L7_mdns],'NTP':[L7_ntp],'Label':[device_label]}
         headers_name=['ARP','LLC','EAPOL','Pck_size','Pck_rawdata','IP_padding','IP_ralert','IP_add_count','Portcl_src','Portcl_dst','ICMP','ICMP6','TCP','UDP','HTTPS','HTTP','DHCP','BOOTP','SSDP','DNS','MDNS','NTP','Label'] 
         df2= pandas.DataFrame(data=ar2,columns=headers_name)
 

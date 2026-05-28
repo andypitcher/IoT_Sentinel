@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 import dpkt
 import pandas as pd
 
-ETH_TYPE_EAPOL = getattr(dpkt.ethernet, "ETH_TYPE_EAPOL", 0x888E)
+ETH_TYPE_EAPOL = 0x888E
 
 FEATURE_HEADERS = [
     "ARP",
@@ -123,7 +123,13 @@ def extract_packet_features(
         ip = eth.data
         row["Pck_size"] = len(ip.data)
 
-        if getattr(ip, "hl", 5) > 5 and getattr(ip, "opts", b"") == dpkt.ip.IP_OPT_RALERT:
+        has_router_alert = (
+            hasattr(ip, "hl")
+            and ip.hl > 5
+            and hasattr(ip, "opts")
+            and ip.opts == dpkt.ip.IP_OPT_RALERT
+        )
+        if has_router_alert:
             row["IP_ralert"] = 1
 
         try:
@@ -162,7 +168,7 @@ def extract_packet_features(
             if 443 in (tcp.sport, tcp.dport):
                 row["HTTPS"] = 1
 
-        if isinstance(ip.data, (bytes, bytearray)):
+        if ip.p == dpkt.ip.IP_PROTO_RAW or isinstance(ip.data, (bytes, bytearray)):
             row["Pck_rawdata"] = 1
 
     elif eth.type != dpkt.ethernet.ETH_TYPE_IP:
@@ -197,7 +203,7 @@ def parse_pcap(outputdir: str, capture: str, device_label: str, id_pcap: int) ->
     tracker = DestinationTracker()
 
     try:
-        with open(capture, "rb") as f:  # noqa: PTH123
+        with Path(capture).open("rb") as f:
             pcap = dpkt.pcap.Reader(f)
             for _, buf in pcap:
                 row = extract_packet_features(buf, device_label, tracker)
@@ -213,15 +219,13 @@ def parse_pcap(outputdir: str, capture: str, device_label: str, id_pcap: int) ->
 def parse_args(argv: List[str]) -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="IoT_Sentinel parse_pcap v1.0")
-    parser.add_argument("-d", "--dir", dest="inputdir", help="Input directory containing device subfolders")
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("-d", "--dir", dest="inputdir", help="Input directory containing device subfolders")
+    source_group.add_argument("-i", "--ifile", dest="inputpcap", help="Single input pcap file")
     parser.add_argument("-o", "--odir", dest="outputdir", required=True, help="Output directory")
-    parser.add_argument("-i", "--ifile", dest="inputpcap", help="Single input pcap file")
     parser.add_argument("-l", "--label", dest="label", help="Device label for single pcap mode")
 
     args = parser.parse_args(argv)
-
-    if bool(args.inputdir) == bool(args.inputpcap):
-        parser.error("Provide exactly one of -d/--dir or -i/--ifile")
     if args.inputpcap and not args.label:
         parser.error("-l/--label is required when using -i/--ifile")
 

@@ -35,6 +35,7 @@ import dpkt
 import pandas as pd
 
 ETH_TYPE_EAPOL = 0x888E
+IP_OPT_RALERT = 0x94  # Router Alert option type (not available in all dpkt versions)
 
 FEATURE_HEADERS = [
     "ARP",
@@ -146,7 +147,7 @@ def extract_packet_features(
             hasattr(ip, "hl")
             and ip.hl > 5
             and hasattr(ip, "opts")
-            and ip.opts == dpkt.ip.IP_OPT_RALERT
+            and ip.opts == IP_OPT_RALERT
         )
         if has_router_alert:
             row["IP_ralert"] = 1

@@ -42,6 +42,7 @@ python iot_fingerprint.py -i path/to/capture.pcap -l "smart_camera" -o csv_resul
 ```
 
 **Enable packet aggregation (12-packet default window):**
+This follows the IoT Sentinel fingerprint-construction approach described in the paper (arXiv:1611.04880), where packet features are grouped into fixed-size windows.
 ```bash
 python iot_fingerprint.py -i path/to/capture.pcap -l "smart_camera" -o csv_results/ --aggregate
 ```

@@ -1,5 +1,7 @@
 # IoT_Sentinel
 
+> Note: This project is originally from **2017** and has been modernized for Python 3 compatibility.
+
 This program is an implementation of IoT sentinel: https://arxiv.org/pdf/1611.04880.pdf  
 Device Fingerprint, it takes as input pcaps and tests each packets against 23 features: 
 
@@ -19,4 +21,35 @@ Usage:
 ```
 iot_fingerprint.py -d <inputdir> [or] -i <inputpcap> -l <label> [and] -o <outputdir>  
 Example: ./iot-fingerprint.py -d captures_IoT_Sentinel/captures_IoT-Sentinel/ -o csv_result_full/
+```
+
+## Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+## Run
+
+**Process a directory of pcap captures (one subfolder per device):**
+```bash
+python iot_fingerprint.py -d captures_IoT_Sentinel/captures_IoT-Sentinel/ -o csv_results/
+```
+
+**Process a single pcap file with a device label:**
+```bash
+python iot_fingerprint.py -i path/to/capture.pcap -l "smart_camera" -o csv_results/
+```
+
+**Using Docker:**
+```bash
+docker build -t iot-sentinel .
+docker run --rm -v $(pwd)/captures:/data/captures -v $(pwd)/output:/data/output \
+  iot-sentinel -d /data/captures/ -o /data/output/
+```
+
+## Testing
+
+```bash
+pytest
 ```

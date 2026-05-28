@@ -1,6 +1,12 @@
 import dpkt
 
-from iot_fingerprint import DestinationTracker, extract_packet_features, port_class_def
+from iot_fingerprint import (
+    PACKET_FEATURE_HEADERS,
+    DestinationTracker,
+    aggregate_packet_rows,
+    extract_packet_features,
+    port_class_def,
+)
 
 
 def test_port_class_def_ranges():
@@ -45,3 +51,45 @@ def test_extract_packet_features_for_tcp_http_packet():
 def test_extract_packet_features_returns_none_for_malformed_packet():
     row = extract_packet_features(b"not-a-packet", "camera", DestinationTracker())
     assert row is None
+
+
+def _packet_row(value: int, label: str = "camera"):
+    row = {feature: 0 for feature in PACKET_FEATURE_HEADERS}
+    row["Pck_size"] = value
+    row["Label"] = label
+    return row
+
+
+def test_aggregate_packet_rows_exact_multiple_no_padding():
+    rows = [_packet_row(index) for index in range(1, 25)]
+    aggregated = aggregate_packet_rows(rows, "camera", window_size=12)
+
+    assert len(aggregated) == 2
+    assert aggregated[0]["Pck_size_1"] == 1
+    assert aggregated[0]["Pck_size_12"] == 12
+    assert aggregated[1]["Pck_size_1"] == 13
+    assert aggregated[1]["Pck_size_12"] == 24
+    assert aggregated[0]["Label"] == "camera"
+
+
+def test_aggregate_packet_rows_adds_zero_padding_for_short_window():
+    rows = [_packet_row(index) for index in range(1, 6)]
+    aggregated = aggregate_packet_rows(rows, "camera", window_size=12)
+
+    assert len(aggregated) == 1
+    assert aggregated[0]["Pck_size_5"] == 5
+    assert aggregated[0]["Pck_size_6"] == 0
+    assert aggregated[0]["TCP_12"] == 0
+
+
+def test_aggregate_packet_rows_empty_input():
+    assert aggregate_packet_rows([], "camera", window_size=12) == []
+
+
+def test_aggregate_packet_rows_single_packet():
+    aggregated = aggregate_packet_rows([_packet_row(9)], "camera", window_size=12)
+
+    assert len(aggregated) == 1
+    assert aggregated[0]["Pck_size_1"] == 9
+    assert aggregated[0]["Pck_size_2"] == 0
+    assert aggregated[0]["NTP_12"] == 0

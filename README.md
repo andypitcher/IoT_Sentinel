@@ -41,6 +41,16 @@ python iot_fingerprint.py -d captures_IoT_Sentinel/captures_IoT-Sentinel/ -o csv
 python iot_fingerprint.py -i path/to/capture.pcap -l "smart_camera" -o csv_results/
 ```
 
+**Enable packet aggregation (12-packet default window):**
+```bash
+python iot_fingerprint.py -i path/to/capture.pcap -l "smart_camera" -o csv_results/ --aggregate
+```
+
+**Customize aggregation window size:**
+```bash
+python iot_fingerprint.py -i path/to/capture.pcap -l "smart_camera" -o csv_results/ --aggregate --window-size 24
+```
+
 **Using Docker:**
 ```bash
 docker build -t iot-sentinel .

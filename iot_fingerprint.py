@@ -36,6 +36,16 @@ import pandas as pd
 
 ETH_TYPE_EAPOL = 0x888E
 IP_OPT_RALERT = 0x94  # Router Alert option type (not available in all dpkt versions)
+AGGREGATION_WINDOW = 12
+MIN_WINDOW_SIZE = 1
+MAX_WINDOW_SIZE = 1000
+MAX_PCAP_FILE_SIZE = 100 * 1024 * 1024
+PCAP_MAGIC_NUMBERS = {
+    b"\xd4\xc3\xb2\xa1",
+    b"\xa1\xb2\xc3\xd4",
+    b"\x4d\x3c\xb2\xa1",
+    b"\xa1\xb2\x3c\x4d",
+}
 
 FEATURE_HEADERS = [
     "ARP",
@@ -62,6 +72,7 @@ FEATURE_HEADERS = [
     "NTP",
     "Label",
 ]
+PACKET_FEATURE_HEADERS = FEATURE_HEADERS[:-1]
 
 
 @dataclass
@@ -78,9 +89,43 @@ class DestinationTracker:
 
 def create_outputdir(outputdir: str, device_label: str) -> Path:
     """Create output directory for a device label."""
-    dirpath = Path(outputdir) / device_label
+    base_dir = Path(outputdir).expanduser().resolve()
+    safe_label = validate_device_label(device_label)
+    dirpath = (base_dir / safe_label).resolve()
+    if base_dir != dirpath and base_dir not in dirpath.parents:
+        raise ValueError("Invalid output path")
     dirpath.mkdir(parents=True, exist_ok=True)
     return dirpath
+
+
+def validate_device_label(device_label: str) -> str:
+    """Validate device label for safe path usage."""
+    label = device_label.strip()
+    if not label or label in {".", ".."} or "/" in label or "\\" in label:
+        raise ValueError("Invalid device label")
+    return label
+
+
+def validate_window_size(window_size: int) -> int:
+    """Validate aggregation window size."""
+    if not (MIN_WINDOW_SIZE <= window_size <= MAX_WINDOW_SIZE):
+        raise ValueError(f"window size must be between {MIN_WINDOW_SIZE} and {MAX_WINDOW_SIZE}")
+    return window_size
+
+
+def validate_pcap_file(capture: str) -> Path:
+    """Validate pcap file path, size and format."""
+    capture_path = Path(capture).expanduser().resolve()
+    if not capture_path.is_file():
+        raise ValueError("Input pcap file is invalid")
+    if capture_path.suffix.lower() != ".pcap":
+        raise ValueError("Input file must use .pcap extension")
+    if capture_path.stat().st_size > MAX_PCAP_FILE_SIZE:
+        raise ValueError("Input pcap file exceeds maximum size limit")
+    with capture_path.open("rb") as pcap_file:
+        if pcap_file.read(4) not in PCAP_MAGIC_NUMBERS:
+            raise ValueError("Input file is not a valid pcap")
+    return capture_path
 
 
 def ip_to_str(address: bytes) -> str:
@@ -202,13 +247,55 @@ def extract_packet_features(
     return row
 
 
-def write_csv(outputdir: str, device_label: str, id_pcap: int, rows: List[Dict[str, int | str]]) -> None:
+def aggregation_headers(window_size: int) -> List[str]:
+    """Build column headers for aggregated packet windows."""
+    validated_window_size = validate_window_size(window_size)
+    return [
+        f"{feature}_{packet_index}"
+        for packet_index in range(1, validated_window_size + 1)
+        for feature in PACKET_FEATURE_HEADERS
+    ] + ["Label"]
+
+
+def aggregate_packet_rows(
+    rows: List[Dict[str, int | str]],
+    device_label: str,
+    window_size: int = AGGREGATION_WINDOW,
+) -> List[Dict[str, int | str]]:
+    """Aggregate per-packet rows into fixed-size windows with zero-padding."""
+    validated_window_size = validate_window_size(window_size)
+    if not rows:
+        return []
+
+    zero_vector = {feature: 0 for feature in PACKET_FEATURE_HEADERS}
+    aggregated_rows: List[Dict[str, int | str]] = []
+
+    for start_index in range(0, len(rows), validated_window_size):
+        window_rows = rows[start_index:start_index + validated_window_size]
+        padded_rows = window_rows + [zero_vector.copy() for _ in range(validated_window_size - len(window_rows))]
+        aggregated_row: Dict[str, int | str] = {}
+        for packet_index, packet_row in enumerate(padded_rows, start=1):
+            for feature in PACKET_FEATURE_HEADERS:
+                aggregated_row[f"{feature}_{packet_index}"] = int(packet_row.get(feature, 0))
+        aggregated_row["Label"] = device_label
+        aggregated_rows.append(aggregated_row)
+
+    return aggregated_rows
+
+
+def write_csv(
+    outputdir: str,
+    device_label: str,
+    id_pcap: int,
+    rows: List[Dict[str, int | str]],
+    headers: Optional[List[str]] = None,
+) -> None:
     """Write extracted rows once per pcap file."""
     if not rows:
         return
     out_dir = create_outputdir(outputdir, device_label)
     csv_file = out_dir / f"file_{device_label}_{id_pcap}.csv"
-    pd.DataFrame(rows, columns=FEATURE_HEADERS).to_csv(
+    pd.DataFrame(rows, columns=headers or FEATURE_HEADERS).to_csv(
         csv_file,
         sep="\t",
         encoding="utf-8",
@@ -217,23 +304,37 @@ def write_csv(outputdir: str, device_label: str, id_pcap: int, rows: List[Dict[s
     )
 
 
-def parse_pcap(outputdir: str, capture: str, device_label: str, id_pcap: int) -> None:
+def parse_pcap(
+    outputdir: str,
+    capture: str,
+    device_label: str,
+    id_pcap: int,
+    aggregate: bool = False,
+    window_size: int = AGGREGATION_WINDOW,
+) -> None:
     """Parse one pcap and persist extracted features."""
     rows: List[Dict[str, int | str]] = []
     tracker = DestinationTracker()
 
     try:
-        with Path(capture).open("rb") as f:
+        capture_path = validate_pcap_file(capture)
+        with capture_path.open("rb") as f:
             pcap = dpkt.pcap.Reader(f)
             for _, buf in pcap:
                 row = extract_packet_features(buf, device_label, tracker)
                 if row is not None:
                     rows.append(row)
-    except (OSError, ValueError, dpkt.UnpackError, dpkt.NeedData) as exc:
-        print(f"Skipping unreadable pcap '{capture}': {exc}")
+    except (OSError, ValueError, dpkt.UnpackError, dpkt.NeedData):
+        print(f"Skipping unreadable pcap '{Path(capture).name}'.")
         return
 
-    write_csv(outputdir, device_label, id_pcap, rows)
+    output_rows = rows
+    output_headers = FEATURE_HEADERS
+    if aggregate:
+        output_rows = aggregate_packet_rows(rows, device_label, window_size)
+        output_headers = aggregation_headers(window_size)
+
+    write_csv(outputdir, device_label, id_pcap, output_rows, output_headers)
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
@@ -244,10 +345,26 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     source_group.add_argument("-i", "--ifile", dest="inputpcap", help="Single input pcap file")
     parser.add_argument("-o", "--odir", dest="outputdir", required=True, help="Output directory")
     parser.add_argument("-l", "--label", dest="label", help="Device label for single pcap mode")
+    parser.add_argument("--aggregate", action="store_true", help="Aggregate packet features into fixed windows")
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=AGGREGATION_WINDOW,
+        help=f"Aggregation window size ({MIN_WINDOW_SIZE}-{MAX_WINDOW_SIZE})",
+    )
 
     args = parser.parse_args(argv)
     if args.inputpcap and not args.label:
         parser.error("-l/--label is required when using -i/--ifile")
+    if args.label:
+        try:
+            args.label = validate_device_label(args.label)
+        except ValueError:
+            parser.error("Invalid label")
+    try:
+        validate_window_size(args.window_size)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     return args
 
@@ -258,9 +375,17 @@ def run(argv: List[str]) -> int:
     print("IoT_Sentinel: parse_pcap.py v1.0\n")
 
     if args.inputdir:
-        device_labels = os.listdir(args.inputdir)
+        inputdir = Path(args.inputdir).expanduser().resolve()
+        if not inputdir.is_dir():
+            print("Input directory is invalid.")
+            return 1
+        device_labels = os.listdir(inputdir)
         for device_label in device_labels:
-            filename_path = os.path.join(args.inputdir, device_label, "*.pcap")
+            try:
+                safe_device_label = validate_device_label(device_label)
+            except ValueError:
+                continue
+            filename_path = os.path.join(str(inputdir), safe_device_label, "*.pcap")
             print(f"\nINPUTDIR: {args.inputdir}")
             print(f"\nOUTPUTDIR: {args.outputdir}")
             print(f"\nDEVICE TESTED:\n{device_labels}\n")
@@ -268,8 +393,15 @@ def run(argv: List[str]) -> int:
             id_pcap = 0
             for filename in glob.glob(filename_path):
                 if os.path.isfile(filename):
-                    print(f"Device: {device_label}\n")
-                    parse_pcap(args.outputdir, filename, device_label, id_pcap)
+                    print(f"Device: {safe_device_label}\n")
+                    parse_pcap(
+                        args.outputdir,
+                        filename,
+                        safe_device_label,
+                        id_pcap,
+                        aggregate=args.aggregate,
+                        window_size=args.window_size,
+                    )
                     id_pcap += 1
                 else:
                     print("file does not exist")
@@ -278,7 +410,14 @@ def run(argv: List[str]) -> int:
         print(f"\nOUTPUTDIR: {args.outputdir}")
         print(f"\nDEVICE TESTED:\n[{args.label}]")
         print("\nSTARTING...\n")
-        parse_pcap(args.outputdir, args.inputpcap, args.label, 1)
+        parse_pcap(
+            args.outputdir,
+            args.inputpcap,
+            args.label,
+            1,
+            aggregate=args.aggregate,
+            window_size=args.window_size,
+        )
 
     return 0
 

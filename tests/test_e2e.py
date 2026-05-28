@@ -7,9 +7,10 @@ and verify the output matches expected results.
 import os
 from pathlib import Path
 
+import dpkt
 import pandas as pd
 
-from iot_fingerprint import FEATURE_HEADERS, run
+from iot_fingerprint import AGGREGATION_WINDOW, FEATURE_HEADERS, aggregation_headers, run
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 E2E_CAPTURES = FIXTURES_DIR / "e2e_captures"
@@ -156,3 +157,33 @@ class TestE2ESingleFileMode:
             check_dtype=False,
             obj="Single file mode vs expected",
         )
+
+    def test_single_pcap_aggregate_flag_outputs_fixed_window_csv(self, tmp_path):
+        """Aggregate mode outputs one fixed-size fingerprint with zero-padding."""
+        pcap_path = tmp_path / "single_packet.pcap"
+        with pcap_path.open("wb") as pcap_file:
+            writer = dpkt.pcap.Writer(pcap_file)
+            ip = dpkt.ip.IP(src=b"\x0a\x00\x00\x01", dst=b"\x0a\x00\x00\x02", p=dpkt.ip.IP_PROTO_TCP)
+            ip.v = 4
+            ip.hl = 5
+            ip.ttl = 64
+            ip.data = dpkt.tcp.TCP(sport=12345, dport=80, seq=1, flags=dpkt.tcp.TH_SYN)
+            eth = dpkt.ethernet.Ethernet(
+                dst=b"\xaa\xaa\xaa\xaa\xaa\xaa",
+                src=b"\xbb\xbb\xbb\xbb\xbb\xbb",
+                type=dpkt.ethernet.ETH_TYPE_IP,
+                data=ip,
+            )
+            writer.writepkt(bytes(eth))
+
+        run(["-i", str(pcap_path), "-l", "camera", "-o", str(tmp_path), "--aggregate"])
+        output_files = list((tmp_path / "camera").glob("*.csv"))
+        assert len(output_files) == 1
+
+        headers = aggregation_headers(AGGREGATION_WINDOW)
+        df = pd.read_csv(output_files[0], sep="\t", header=None, names=headers)
+        assert df.shape == (1, ((len(FEATURE_HEADERS) - 1) * AGGREGATION_WINDOW) + 1)
+        assert df["Label"].iloc[0] == "camera"
+        assert df["TCP_1"].iloc[0] == 1
+        assert df["HTTP_1"].iloc[0] == 1
+        assert df["TCP_2"].iloc[0] == 0

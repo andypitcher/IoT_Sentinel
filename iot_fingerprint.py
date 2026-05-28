@@ -92,7 +92,7 @@ def create_outputdir(outputdir: str, device_label: str) -> Path:
     base_dir = Path(outputdir).expanduser().resolve()
     safe_label = validate_device_label(device_label)
     dirpath = (base_dir / safe_label).resolve()
-    if base_dir != dirpath and base_dir not in dirpath.parents:
+    if base_dir not in [dirpath, *dirpath.parents]:
         raise ValueError("Invalid output path")
     dirpath.mkdir(parents=True, exist_ok=True)
     return dirpath
@@ -271,12 +271,13 @@ def aggregate_packet_rows(
     aggregated_rows: List[Dict[str, int | str]] = []
 
     for start_index in range(0, len(rows), validated_window_size):
-        window_rows = rows[start_index:start_index + validated_window_size]
-        padded_rows = window_rows + [zero_vector.copy() for _ in range(validated_window_size - len(window_rows))]
+        window_rows = rows[start_index : start_index + validated_window_size]
+        padding_count = validated_window_size - len(window_rows)
+        padded_rows = list(window_rows) + [zero_vector.copy() for _ in range(padding_count)]
         aggregated_row: Dict[str, int | str] = {}
         for packet_index, packet_row in enumerate(padded_rows, start=1):
             for feature in PACKET_FEATURE_HEADERS:
-                aggregated_row[f"{feature}_{packet_index}"] = int(packet_row.get(feature, 0))
+                aggregated_row[f"{feature}_{packet_index}"] = packet_row.get(feature, 0)
         aggregated_row["Label"] = device_label
         aggregated_rows.append(aggregated_row)
 

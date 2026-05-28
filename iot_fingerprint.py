@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-IoT Sentinel: parse_pcap.py v1.0
-Author: Andy Pitcher <andy.pitcher@mail.concordia.ca>
+IoT Sentinel
+Author: Andy Pitcher (@andypitcher)
 
 This program is an implementation of IoT sentinel: https://arxiv.org/pdf/1611.04880.pdf
 

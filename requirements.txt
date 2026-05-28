@@ -1,0 +1,4 @@
+dpkt==1.9.8
+pandas==2.2.2
+pytest==8.3.2
+ruff==0.6.9

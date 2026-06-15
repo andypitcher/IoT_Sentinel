@@ -1,5 +1,7 @@
 # IoT_Sentinel
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/andypitcher/IoT_Sentinel/badge)](https://scorecard.dev/viewer/?uri=github.com/andypitcher/IoT_Sentinel)
+
 > Note: This project is originally from **2017** and has been modernized for Python 3 compatibility.
 
 This program is an implementation of IoT sentinel: https://arxiv.org/pdf/1611.04880.pdf  

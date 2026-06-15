@@ -11,7 +11,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install system dependencies and clean up in one layer
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        tini && \
+        tini=0.19.0-3+b7 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

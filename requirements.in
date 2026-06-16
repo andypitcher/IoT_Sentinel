@@ -1,4 +1,4 @@
 dpkt==1.9.8
 pandas==2.2.2
 pytest==9.0.3
-ruff==0.6.9
+ruff==0.15.17

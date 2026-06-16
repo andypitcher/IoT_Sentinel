@@ -2,7 +2,7 @@
 # Uses pinned digest, non-root user, minimal attack surface
 
 # Pin base image to digest for reproducibility and supply chain protection
-FROM python:3.11-slim@sha256:ad48727987b259854d52241e7fe5b3d11f63e0eb7e9f7684bc2b6b59f6d0467e AS base
+FROM python:3.14-slim@sha256:44dd04494ee8f3b538294360e7c4b3acb87c8268e4d0a4828a6500b1eff50061 AS base
 
 # Prevent Python from writing .pyc files and enable unbuffered output
 ENV PYTHONDONTWRITEBYTECODE=1 \

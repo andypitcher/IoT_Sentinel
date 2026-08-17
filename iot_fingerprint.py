@@ -29,7 +29,6 @@ import socket
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import dpkt
 import pandas as pd
@@ -148,7 +147,7 @@ def extract_packet_features(
     buf: bytes,
     device_label: str,
     destination_tracker: DestinationTracker,
-) -> Optional[Dict[str, int | str]]:
+) -> dict[str, int | str] | None:
     """Extract feature dictionary for one packet buffer.
 
     Returns None for malformed packets.
@@ -158,7 +157,7 @@ def extract_packet_features(
     except (dpkt.UnpackError, ValueError):
         return None
 
-    row: Dict[str, int | str] = {
+    row: dict[str, int | str] = {
         "ARP": 0,
         "LLC": 0,
         "EAPOL": 0,
@@ -247,7 +246,7 @@ def extract_packet_features(
     return row
 
 
-def aggregation_headers(window_size: int) -> List[str]:
+def aggregation_headers(window_size: int) -> list[str]:
     """Build column headers for aggregated packet windows."""
     validated_window_size = validate_window_size(window_size)
     return [
@@ -258,23 +257,23 @@ def aggregation_headers(window_size: int) -> List[str]:
 
 
 def aggregate_packet_rows(
-    rows: List[Dict[str, int | str]],
+    rows: list[dict[str, int | str]],
     device_label: str,
     window_size: int = AGGREGATION_WINDOW,
-) -> List[Dict[str, int | str]]:
+) -> list[dict[str, int | str]]:
     """Aggregate per-packet rows into fixed-size windows with zero-padding."""
     validated_window_size = validate_window_size(window_size)
     if not rows:
         return []
 
     zero_vector = {feature: 0 for feature in PACKET_FEATURE_HEADERS}
-    aggregated_rows: List[Dict[str, int | str]] = []
+    aggregated_rows: list[dict[str, int | str]] = []
 
     for start_index in range(0, len(rows), validated_window_size):
         window_rows = rows[start_index : start_index + validated_window_size]
         padding_count = validated_window_size - len(window_rows)
         padded_rows = list(window_rows) + [zero_vector.copy() for _ in range(padding_count)]
-        aggregated_row: Dict[str, int | str] = {}
+        aggregated_row: dict[str, int | str] = {}
         for packet_index, packet_row in enumerate(padded_rows, start=1):
             for feature in PACKET_FEATURE_HEADERS:
                 aggregated_row[f"{feature}_{packet_index}"] = packet_row.get(feature, 0)
@@ -288,8 +287,8 @@ def write_csv(
     outputdir: str,
     device_label: str,
     id_pcap: int,
-    rows: List[Dict[str, int | str]],
-    headers: Optional[List[str]] = None,
+    rows: list[dict[str, int | str]],
+    headers: list[str] | None = None,
 ) -> None:
     """Write extracted rows once per pcap file."""
     if not rows:
@@ -314,7 +313,7 @@ def parse_pcap(
     window_size: int = AGGREGATION_WINDOW,
 ) -> None:
     """Parse one pcap and persist extracted features."""
-    rows: List[Dict[str, int | str]] = []
+    rows: list[dict[str, int | str]] = []
     tracker = DestinationTracker()
 
     try:
@@ -338,7 +337,7 @@ def parse_pcap(
     write_csv(outputdir, device_label, id_pcap, output_rows, output_headers)
 
 
-def parse_args(argv: List[str]) -> argparse.Namespace:
+def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="IoT_Sentinel parse_pcap v1.0")
     source_group = parser.add_mutually_exclusive_group(required=True)
@@ -370,7 +369,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     return args
 
 
-def run(argv: List[str]) -> int:
+def run(argv: list[str]) -> int:
     """CLI entrypoint returning process exit code."""
     args = parse_args(argv)
     print("IoT_Sentinel: parse_pcap.py v1.0\n")

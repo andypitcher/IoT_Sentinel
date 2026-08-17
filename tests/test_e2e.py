@@ -10,7 +10,12 @@ from pathlib import Path
 import dpkt
 import pandas as pd
 
-from iot_fingerprint import AGGREGATION_WINDOW, FEATURE_HEADERS, aggregation_headers, run
+from iot_fingerprint import (
+    AGGREGATION_WINDOW,
+    FEATURE_HEADERS,
+    aggregation_headers,
+    run,
+)
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 E2E_CAPTURES = FIXTURES_DIR / "e2e_captures"
